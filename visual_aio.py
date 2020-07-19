@@ -100,7 +100,10 @@ def main():
     DEV1_JSON_FILENAME="../Data/dev1_questions.json"
     DEV2_JSON_FILENAME="../Data/dev2_questions.json"
     
+    logger.info("Start loading contexts.")
     contexts=load_contexts(CANDIDATE_ENTITIES_FILENAME)
+    logger.info("Finished loading contexts.")
+    logger.info("Number of contexts: {}".format(len(contexts)))
 
 if __name__=="__main__":
     main()
