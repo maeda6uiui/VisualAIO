@@ -15,6 +15,13 @@ from transformers import (
     get_linear_schedule_with_warmup,
 )
 
+#Create a model.
+model = BertForMultipleChoice.from_pretrained(
+    "cl-tohoku/bert-base-japanese-whole-word-masking"
+)
+if torch.cuda.is_available():
+    model.cuda()
+
 #Tokenizer
 tokenizer = BertJapaneseTokenizer.from_pretrained(
     "cl-tohoku/bert-base-japanese-whole-word-masking"
@@ -330,14 +337,12 @@ def convert_examples_to_features(
 
     return input_ids,attention_mask,token_type_ids,labels
 
-def train(model, train_dataset,batch_size=2,epoch_num=8,model_save_dir="."):
+def train(train_dataset,batch_size=2,epoch_num=8,model_save_dir="."):
     """
     Train the model.
 
     Parameters
     ----------
-    model: transformers.BertForMultipleChoice
-        BERT model
     train_dataset: torch.utils.data.TensorDataset
         Train dataset
     batch_size: int
@@ -467,13 +472,6 @@ def main():
     logger.info("Finished loading contexts.")
     logger.info("Number of contexts: {}".format(len(context_dict)))
 
-    #Create a model.
-    model = BertForMultipleChoice.from_pretrained(
-        "cl-tohoku/bert-base-japanese-whole-word-masking"
-    )
-    if torch.cuda.is_available():
-        model.cuda()
-
     #Train
     train_dataset=None
 
@@ -513,7 +511,7 @@ def main():
             input_ids,attention_mask,token_type_ids,labels
         )
 
-    train(model,train_dataset,batch_size=2,epoch_num=8,model_save_dir=MODEL_SAVE_DIR)
+    train(train_dataset,batch_size=2,epoch_num=8,model_save_dir=MODEL_SAVE_DIR)
 
 if __name__=="__main__":
     main()
