@@ -333,6 +333,12 @@ def main():
     IMAGE_BASE_DIR="../Data/WikipediaImages/Images/"
     ARTICLE_LIST_FILENAME="../Data/WikipediaImages/article_list.txt"
 
+    CANDIDATE_ENTITIES_FILENAME="../Data/candidate_entities.json.gz"
+    TRAIN_JSON_FILENAME="../Data/train_questions.json"
+    DEV1_JSON_FILENAME="../Data/dev1_questions.json"
+    DEV2_JSON_FILENAME="../Data/dev2_questions.json"
+    LEADERBOARD_JSON_FILENAME="../Data/aio_leaderboard.json"
+
     #Load the list of articles.
     logger.info("Start loading the article list.")
     df = pd.read_table(ARTICLE_LIST_FILENAME, header=None)
@@ -351,17 +357,14 @@ def main():
         article_dict[article_name]=image_dir
 
     logger.info("Finished creating a dict of articles.")
-
-    CANDIDATE_ENTITIES_FILENAME="../Data/candidate_entities.json.gz"
-    TRAIN_JSON_FILENAME="../Data/train_questions.json"
-    DEV1_JSON_FILENAME="../Data/dev1_questions.json"
-    DEV2_JSON_FILENAME="../Data/dev2_questions.json"
     
+    #Load contexts.
     logger.info("Start loading contexts.")
     context_dict=load_contexts(CANDIDATE_ENTITIES_FILENAME)
     logger.info("Finished loading contexts.")
     logger.info("Number of contexts: {}".format(len(context_dict)))
 
+    #Load examples.
     logger.info("Start loading examples.")
     examples=load_examples(DEV2_JSON_FILENAME,option_num=4)
     logger.info("Finished loading examples.")
