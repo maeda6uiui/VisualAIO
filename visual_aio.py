@@ -28,6 +28,9 @@ from detectron2 import model_zoo
 from detectron2.engine import DefaultPredictor
 from detectron2.config import get_cfg
 from PIL import Image
+from PIL import ImageFile
+
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 #Setup Detectron2
 setup_logger()
@@ -285,11 +288,13 @@ def convert_examples_to_features(
             attention_mask_tmp=torch.ones(max_seq_length,dtype=torch.long)
             #0 for text features and 1 for image features
             token_type_ids_tmp=torch.zeros(max_seq_length,dtype=torch.long)
-            for j in range(max_seq_length-image_features_length,max_seq_length):
-                token_type_ids_tmp[j]=1
 
             #Image features
             if ending in article_dict:
+                #Set token_type_ids.
+                for j in range(max_seq_length-image_features_length,max_seq_length):
+                    token_type_ids_tmp[j]=1
+
                 image_dir=article_dict[ending]
                 regions=get_pred_boxes_as_images(image_dir)
                 image_features=get_vgg16_output_from_regions(regions,output_dim=1)
