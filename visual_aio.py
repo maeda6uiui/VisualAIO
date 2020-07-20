@@ -59,8 +59,9 @@ preprocess = torchvision.transforms.Compose([
     normalize
 ])
 
-#Set up a logger
-logging.basicConfig()
+#Set up a logger.
+logging_fmt = "%(asctime)s %(levelname)s: %(message)s"
+logging.basicConfig(format=logging_fmt)
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
 
@@ -329,6 +330,100 @@ def convert_examples_to_features(
 
     return input_ids,attention_mask,token_type_ids,labels
 
+def train(model, train_dataset,batch_size=2,epoch_num=8,model_save_dir="."):
+    """
+    Train the model.
+
+    Parameters
+    ----------
+    model: transformers.BertForMultipleChoice
+        BERT model
+    train_dataset: torch.utils.data.TensorDataset
+        Train dataset
+    batch_size: int
+        Batch size
+    epoch_num: int
+        Epoch num
+    model_save_dir: str
+        Directory to save the models in
+
+    """
+    logger.info("Start training.")
+    logger.info("Batch size: {} Epoch num: {}".format(batch_size,epoch_num))
+
+    #Create a dataloader.
+    train_dataloader = torch.utils.data.DataLoader(
+        train_dataset, batch_size=batch_size, shuffle=True
+    )
+
+    #Set the model to train mode.
+    model.train()
+
+    #Set up an optimizer and a scheduler.
+    lr = 5e-5
+    eps = 1e-8
+    logger.info("lr = {}".format(lr))
+    logger.info("eps = {}".format(eps))
+
+    optimizer = AdamW(model.parameters(), lr=lr, eps=eps)
+    total_steps = len(train_dataloader) * epoch_num
+    scheduler = get_linear_schedule_with_warmup(
+        optimizer, num_warmup_steps=0, num_training_steps=total_steps
+    )
+
+    log_interval = 100
+
+    #Create a directory to save models in.
+    os.makedirs(model_save_dir,exist_ok=True)
+
+    for epoch in range(epoch_num):
+        logger.info("========== Epoch {} / {} ==========".format(epoch + 1, epoch_num))
+
+        for step, batch in enumerate(tqdm(train_dataloader)):
+            batch = tuple(t for t in batch)
+
+            inputs=None
+            if torch.cuda.is_available():
+                inputs = {
+                    "input_ids": batch[0].cuda(),
+                    "attention_mask": batch[1].cuda(),
+                    "token_type_ids": batch[2].cuda(),
+                    "labels": batch[3].cuda(),
+                }
+            else:
+                inputs = {
+                    "input_ids": batch[0],
+                    "attention_mask": batch[1],
+                    "token_type_ids": batch[2],
+                    "labels": batch[3],
+                }
+
+            # Initialize gradiants
+            optimizer.zero_grad()
+            # Forward propagation
+            outputs = model(**inputs)
+            loss = outputs[0]
+            # Backward propagation
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            # Update parameters
+            optimizer.step()
+            scheduler.step()
+
+            model.zero_grad()
+
+            if step % log_interval == 0:
+                logger.info("Loss: {}".format(loss.item()))
+
+        #Save the parameters per epoch.
+        checkpoint_filename="checkpoint_{}.bin".format(epoch)
+        torch.save(model.state_dict(),model_save_dir+checkpoint_filename)
+
+    #Save the final model parameters.
+    torch.save(model.state_dict(), model_save_dir+"pytorch_model.bin")
+
+    logger.info("Finished training.")
+
 def main():
     IMAGE_BASE_DIR="../Data/WikipediaImages/Images/"
     ARTICLE_LIST_FILENAME="../Data/WikipediaImages/article_list.txt"
@@ -342,6 +437,10 @@ def main():
     TRAIN_OPTION_NUM=4
 
     FEATURES_CACHE_DIR="../Data/Cache/"
+
+    TRAIN_BATCH_SIZE=2
+    TRAIN_EPOCH_NUM=8
+    MODEL_SAVE_DIR="./OutputDir/"
 
     #Load the list of articles.
     logger.info("Start loading the article list.")
@@ -367,6 +466,13 @@ def main():
     context_dict=load_contexts(CANDIDATE_ENTITIES_FILENAME)
     logger.info("Finished loading contexts.")
     logger.info("Number of contexts: {}".format(len(context_dict)))
+
+    #Create a model.
+    model = BertForMultipleChoice.from_pretrained(
+        "cl-tohoku/bert-base-japanese-whole-word-masking"
+    )
+    if torch.cuda.is_available():
+        model.cuda()
 
     #Train
     train_dataset=None
@@ -407,7 +513,7 @@ def main():
             input_ids,attention_mask,token_type_ids,labels
         )
 
-    
+    train(model,train_dataset,batch_size=2,epoch_num=8,model_save_dir=MODEL_SAVE_DIR)
 
 if __name__=="__main__":
     main()
