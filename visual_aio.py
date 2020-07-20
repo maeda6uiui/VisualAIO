@@ -159,7 +159,11 @@ def get_pred_boxes_as_images(image_dir):
 
         files = os.listdir(image_dir)
         for file in files:
-            image_pil=Image.open(image_dir+file)
+            try:
+                image_pil=Image.open(image_dir+file)
+            except:
+                logger.error("Image file open error: {}".format(image_dir+file))
+                continue
 
             image_cv2 = cv2.imread(image_dir + file)
             outputs = predictor(image_cv2)
