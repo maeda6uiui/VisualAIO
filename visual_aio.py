@@ -373,10 +373,5 @@ def main():
         option_num=4,max_seq_length=512,image_features_length=50)
     logger.info("Finished converting examples to features.")
 
-    print("input_ids[0]:",input_ids.detach().numpy()[0])
-    print("attention_mask[0]:",attention_mask.detach().numpy()[0])
-    print("token_type_ids[0]:",token_type_ids.detach().numpy()[0])
-    print("labels:",labels.detach().numpy())
-
 if __name__=="__main__":
     main()
