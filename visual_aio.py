@@ -318,7 +318,7 @@ def convert_examples_to_features(
                     input_ids_tmp=torch.cat([input_ids_tmp,zero_pad],dim=0)
 
                     #Set attention mask.
-                    for j in range(max_seq_length-input_ids_length,max_seq_length):
+                    for j in range(input_ids_length,max_seq_length):
                         attention_mask_tmp[j]=0
 
             input_ids[example_index,i]=input_ids_tmp
