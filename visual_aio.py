@@ -339,6 +339,10 @@ def main():
     DEV2_JSON_FILENAME="../Data/dev2_questions.json"
     LEADERBOARD_JSON_FILENAME="../Data/aio_leaderboard.json"
 
+    TRAIN_OPTION_NUM=4
+
+    FEATURES_CACHE_DIR="../Data/Cache/"
+
     #Load the list of articles.
     logger.info("Start loading the article list.")
     df = pd.read_table(ARTICLE_LIST_FILENAME, header=None)
@@ -364,17 +368,46 @@ def main():
     logger.info("Finished loading contexts.")
     logger.info("Number of contexts: {}".format(len(context_dict)))
 
-    #Load examples.
-    logger.info("Start loading examples.")
-    examples=load_examples(DEV2_JSON_FILENAME,option_num=4)
-    logger.info("Finished loading examples.")
-    logger.info("Number of examples: {}".format(len(examples)))
+    #Train
+    train_dataset=None
 
-    logger.info("Start converting examples to features.")
-    input_ids,attention_mask,token_type_ids,labels=convert_examples_to_features(
-        examples,context_dict,article_dict,
-        option_num=4,max_seq_length=512,image_features_length=50)
-    logger.info("Finished converting examples to features.")
+    #Load cached features it cache directory exists.
+    if os.path.exists(FEATURES_CACHE_DIR):
+        input_ids=torch.load(FEATURES_CACHE_DIR+"input_ids.pt")
+        attention_mask=torch.load(FEATURES_CACHE_DIR+"attention_mask.pt")
+        token_type_ids=torch.load(FEATURES_CACHE_DIR+"token_type_ids.pt")
+        labels=torch.load(FEATURES_CACHE_DIR+"labels.pt")
+
+        train_dataset=torch.utils.data.TensorDataset(
+            input_ids,attention_mask,token_type_ids,labels
+        )
+
+    else:
+        logger.info("Start loading examples.")
+        logger.info("JSON filename: {}".format(TRAIN_JSON_FILENAME))
+        examples=load_examples(TRAIN_JSON_FILENAME,option_num=TRAIN_OPTION_NUM)
+        logger.info("Finished loading examples.")
+        logger.info("Number of examples: {}".format(len(examples)))
+
+        logger.info("Start converting examples to features.")
+        input_ids,attention_mask,token_type_ids,labels=convert_examples_to_features(
+            examples,context_dict,article_dict,
+            option_num=TRAIN_OPTION_NUM,max_seq_length=512,image_features_length=50)
+        logger.info("Finished converting examples to features.")
+
+        os.makedirs(FEATURES_CACHE_DIR)
+
+        torch.save(input_ids,FEATURES_CACHE_DIR+"input_ids.pt")
+        torch.save(attention_mask,FEATURES_CACHE_DIR+"attention_mask.pt")
+        torch.save(token_type_ids,FEATURES_CACHE_DIR+"token_type_ids.pt")
+        torch.save(labels,FEATURES_CACHE_DIR+"labels.pt")
+        logger.info("Saved cache files in {}.".format(FEATURES_CACHE_DIR))
+
+        train_dataset=torch.utils.data.TensorDataset(
+            input_ids,attention_mask,token_type_ids,labels
+        )
+
+    
 
 if __name__=="__main__":
     main()
