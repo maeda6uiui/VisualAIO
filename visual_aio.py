@@ -584,6 +584,7 @@ def main(do_train=True):
 
     #If there exists a cached file for the model parameters, then load it.
     if os.path.exists(MODEL_SAVE_DIR):
+        logger.info("Loads parameters from {}.".format(MODEL_SAVE_DIR+"pytorch_model.bin"))
         model.load_state_dict(torch.load(MODEL_SAVE_DIR+"pytorch_model.bin"))
 
     if do_train==True:
