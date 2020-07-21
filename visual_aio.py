@@ -1,3 +1,4 @@
+import argparse
 import gzip
 import json
 import logging
@@ -541,7 +542,7 @@ def test(model,test_dataset,batch_size=4,result_filename="",labels_filename=""):
     logger.info("Finished test.")
     logger.info("Eval loss: {}\nAccuracy: {}".format(eval_loss, accuracy))
 
-def main(do_train=True):
+def main(do_train=True,train_batch_size=2,train_epoch_num=5,model_save_dir="./OutputDir/"):
     """
     Main function
 
@@ -549,6 +550,12 @@ def main(do_train=True):
     ----------
     do_train: bool
         Runs model training if true.
+    train_batch_size: int
+        Batch size for model training
+    train_epoch_num: int
+        Number of epochs for model training
+    model_save_dir: str
+        Directory to save the trained model in.
     """
     IMAGE_BASE_DIR="../Data/WikipediaImages/Images/"
     ARTICLE_LIST_FILENAME="../Data/WikipediaImages/article_list.txt"
@@ -563,10 +570,6 @@ def main(do_train=True):
 
     TRAIN_FEATURES_CACHE_DIR="../Data/Cache/Train/"
     DEV2_FEATURES_CACHE_DIR="../Data/Cache/Dev2/"
-
-    TRAIN_BATCH_SIZE=4
-    TRAIN_EPOCH_NUM=5
-    MODEL_SAVE_DIR="./OutputDir/"
 
     TEST_BATCH_SIZE=4
 
@@ -603,7 +606,7 @@ def main(do_train=True):
         model.cuda()
 
     #If there exists a cached file for the model parameters, then load it.
-    model_filename=MODEL_SAVE_DIR+"pytorch_model.bin"
+    model_filename=model_save_dir+"pytorch_model.bin"
     if os.path.exists(model_filename):
         logger.info("Loads parameters from {}.".format(model_filename))
         model.load_state_dict(torch.load(model_filename))
@@ -650,8 +653,8 @@ def main(do_train=True):
                 input_ids,attention_mask,token_type_ids,labels
             )
 
-        train(model,train_dataset,batch_size=TRAIN_BATCH_SIZE,
-            epoch_num=TRAIN_EPOCH_NUM,model_save_dir=MODEL_SAVE_DIR)
+        train(model,train_dataset,batch_size=train_batch_size,
+            epoch_num=train_epoch_num,model_save_dir=model_save_dir)
     
     #Test
     test_dataset=None
@@ -695,7 +698,20 @@ def main(do_train=True):
         )
 
     test(model,test_dataset,batch_size=4,
-        result_filename=MODEL_SAVE_DIR+"result.txt",labels_filename=MODEL_SAVE_DIR+"labels.txt")
+        result_filename=model_save_dir+"result.txt",labels_filename=model_save_dir+"labels.txt")
 
 if __name__=="__main__":
-    main(do_train=False)
+    parser=argparse.ArgumentParser(description="VisualAIO")
+
+    parser.add_argument("--do_train",type=bool,default=True)
+    parser.add_argument("--train_batch_size",type=int,default=2)
+    parser.add_argument("--train_epoch_num",type=int,default=5)
+    parser.add_argument("--model_save_dir",type=str,default="./OutputDir/")
+
+    args=parser.parse_args()
+
+    main(do_train=args.do_train,
+        train_batch_size=args.train_batch_size,
+        train_epoch_num=args.train_epoch_num,
+        model_save_dir=args.model_save_dir)
+
