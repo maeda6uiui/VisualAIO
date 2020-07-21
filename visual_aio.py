@@ -427,10 +427,11 @@ def train(model,train_dataset,batch_size=2,epoch_num=8,model_save_dir="."):
         checkpoint_filename="checkpoint_{}.bin".format(epoch)
         torch.save(model.state_dict(),model_save_dir+checkpoint_filename)
 
+    logger.info("Finished training.")
+    
     #Save the final model parameters.
     torch.save(model.state_dict(), model_save_dir+"pytorch_model.bin")
-
-    logger.info("Finished training.")
+    logger.info("Model saved in {}.".format(model_save_dir+"pytorch_model.bin"))
 
 def simple_accuracy(preds, labels):
     """
@@ -520,7 +521,15 @@ def test(model, test_dataset,batch_size=4):
     logger.info("Finished test.")
     logger.info("Eval loss: {}\nAccuracy: {}".format(eval_loss, accuracy))
 
-def main():
+def main(do_train=True):
+    """
+    Main function
+
+    Parameters
+    ----------
+    do_train: bool
+        Runs model training if true.
+    """
     IMAGE_BASE_DIR="../Data/WikipediaImages/Images/"
     ARTICLE_LIST_FILENAME="../Data/WikipediaImages/article_list.txt"
 
@@ -577,48 +586,49 @@ def main():
     if os.path.exists(MODEL_SAVE_DIR):
         model.load_state_dict(torch.load(MODEL_SAVE_DIR+"pytorch_model.bin"))
 
-    #Train
-    train_dataset=None
+    if do_train==True:
+        #Train
+        train_dataset=None
 
-    #Load cached features it cache directory exists.
-    if os.path.exists(TRAIN_FEATURES_CACHE_DIR):
-        logger.info("Load features from cached files.")
+        #Load cached features it cache directory exists.
+        if os.path.exists(TRAIN_FEATURES_CACHE_DIR):
+            logger.info("Load features from cached files.")
 
-        input_ids=torch.load(TRAIN_FEATURES_CACHE_DIR+"input_ids.pt")
-        attention_mask=torch.load(TRAIN_FEATURES_CACHE_DIR+"attention_mask.pt")
-        token_type_ids=torch.load(TRAIN_FEATURES_CACHE_DIR+"token_type_ids.pt")
-        labels=torch.load(TRAIN_FEATURES_CACHE_DIR+"labels.pt")
+            input_ids=torch.load(TRAIN_FEATURES_CACHE_DIR+"input_ids.pt")
+            attention_mask=torch.load(TRAIN_FEATURES_CACHE_DIR+"attention_mask.pt")
+            token_type_ids=torch.load(TRAIN_FEATURES_CACHE_DIR+"token_type_ids.pt")
+            labels=torch.load(TRAIN_FEATURES_CACHE_DIR+"labels.pt")
 
-        train_dataset=torch.utils.data.TensorDataset(
-            input_ids,attention_mask,token_type_ids,labels
-        )
+            train_dataset=torch.utils.data.TensorDataset(
+                input_ids,attention_mask,token_type_ids,labels
+            )
 
-    else:
-        logger.info("Start loading examples.")
-        logger.info("JSON filename: {}".format(TRAIN_JSON_FILENAME))
-        examples=load_examples(TRAIN_JSON_FILENAME,option_num=TRAIN_OPTION_NUM)
-        logger.info("Finished loading examples.")
-        logger.info("Number of examples: {}".format(len(examples)))
+        else:
+            logger.info("Start loading examples.")
+            logger.info("JSON filename: {}".format(TRAIN_JSON_FILENAME))
+            examples=load_examples(TRAIN_JSON_FILENAME,option_num=TRAIN_OPTION_NUM)
+            logger.info("Finished loading examples.")
+            logger.info("Number of examples: {}".format(len(examples)))
 
-        logger.info("Start converting examples to features.")
-        input_ids,attention_mask,token_type_ids,labels=convert_examples_to_features(
-            examples,context_dict,article_dict,
-            option_num=TRAIN_OPTION_NUM,max_seq_length=512,image_features_length=50)
-        logger.info("Finished converting examples to features.")
+            logger.info("Start converting examples to features.")
+            input_ids,attention_mask,token_type_ids,labels=convert_examples_to_features(
+                examples,context_dict,article_dict,
+                option_num=TRAIN_OPTION_NUM,max_seq_length=512,image_features_length=50)
+            logger.info("Finished converting examples to features.")
 
-        os.makedirs(TRAIN_FEATURES_CACHE_DIR)
+            os.makedirs(TRAIN_FEATURES_CACHE_DIR)
 
-        torch.save(input_ids,TRAIN_FEATURES_CACHE_DIR+"input_ids.pt")
-        torch.save(attention_mask,TRAIN_FEATURES_CACHE_DIR+"attention_mask.pt")
-        torch.save(token_type_ids,TRAIN_FEATURES_CACHE_DIR+"token_type_ids.pt")
-        torch.save(labels,TRAIN_FEATURES_CACHE_DIR+"labels.pt")
-        logger.info("Saved cache files in {}.".format(TRAIN_FEATURES_CACHE_DIR))
+            torch.save(input_ids,TRAIN_FEATURES_CACHE_DIR+"input_ids.pt")
+            torch.save(attention_mask,TRAIN_FEATURES_CACHE_DIR+"attention_mask.pt")
+            torch.save(token_type_ids,TRAIN_FEATURES_CACHE_DIR+"token_type_ids.pt")
+            torch.save(labels,TRAIN_FEATURES_CACHE_DIR+"labels.pt")
+            logger.info("Saved cache files in {}.".format(TRAIN_FEATURES_CACHE_DIR))
 
-        train_dataset=torch.utils.data.TensorDataset(
-            input_ids,attention_mask,token_type_ids,labels
-        )
+            train_dataset=torch.utils.data.TensorDataset(
+                input_ids,attention_mask,token_type_ids,labels
+            )
 
-    train(model,train_dataset,batch_size=2,epoch_num=8,model_save_dir=MODEL_SAVE_DIR)
+        train(model,train_dataset,batch_size=2,epoch_num=8,model_save_dir=MODEL_SAVE_DIR)
     
     #Test
     test_dataset=None
@@ -664,4 +674,4 @@ def main():
     test(model,test_dataset,batch_size=4)
 
 if __name__=="__main__":
-    main()
+    main(do_train=False)
