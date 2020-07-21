@@ -78,7 +78,7 @@ class InputExample(object):
         self.endings = endings
         self.label = label
 
-def load_examples(json_filename,option_num=4):
+def load_examples(json_filename,option_num=4,use_fixed_label=True):
     """
     Loads examples from a JSON file.
 
@@ -88,6 +88,8 @@ def load_examples(json_filename,option_num=4):
         Filename of the JSON file
     option_num: int
         Number of options
+    use_fixed_label: bool
+        Labels are fixed to 0 if this flag is true.
 
     Returns
     ----------
@@ -107,8 +109,10 @@ def load_examples(json_filename,option_num=4):
         options = data["answer_candidates"][:option_num]
         answer = data["answer_entity"]
 
-        #Label is always 0 for training data, and it is not necessary for test.
-        label=0
+        if use_fixed_label==True:
+            label=0
+        else:
+            label=options.index(answer)
 
         example = InputExample(qid, question, options, label)
         examples.append(example)
@@ -451,7 +455,7 @@ def simple_accuracy(preds, labels):
     """
     return (preds == labels).mean()
 
-def test(model, test_dataset,batch_size=4):
+def test(model,test_dataset,batch_size=4,result_filename="",labels_filename=""):
     """
     Tests the model.
 
@@ -463,6 +467,10 @@ def test(model, test_dataset,batch_size=4):
         Test dataset
     batch_size: int
         Batch size
+    result_filename: str
+        Filename of the text file to save the test result in.
+    labels_filename: str
+        Filename of the text file to save the predicted labels and the correct labels.
     """
     logger.info("Start test.")
 
@@ -517,6 +525,18 @@ def test(model, test_dataset,batch_size=4):
     pred_ids = np.argmax(preds, axis=1)
 
     accuracy = simple_accuracy(pred_ids, out_label_ids)
+
+    #Save the test result.
+    if result_filename!="":
+        with open(result_filename,mode="w") as w:
+            w.write("Eval loss: {}\n".format(eval_loss))
+            w.write("Accuracy: {}\n".format(accuracy))
+
+    #Save the predicted labels and correct labels.
+    if labels_filename!="":
+        with open(labels_filename,mode="w") as w:
+            for pred,correct in zip(pred_ids,out_label_ids):
+                w.write("{} {}\n".format(pred,correct))
 
     logger.info("Finished test.")
     logger.info("Eval loss: {}\nAccuracy: {}".format(eval_loss, accuracy))
@@ -607,7 +627,7 @@ def main(do_train=True):
         else:
             logger.info("Start loading examples.")
             logger.info("JSON filename: {}".format(TRAIN_JSON_FILENAME))
-            examples=load_examples(TRAIN_JSON_FILENAME,option_num=TRAIN_OPTION_NUM)
+            examples=load_examples(TRAIN_JSON_FILENAME,option_num=TRAIN_OPTION_NUM,use_fixed_label=True)
             logger.info("Finished loading examples.")
             logger.info("Number of examples: {}".format(len(examples)))
 
@@ -650,7 +670,7 @@ def main(do_train=True):
     else:
         logger.info("Start loading examples.")
         logger.info("JSON filename: {}".format(DEV2_JSON_FILENAME))
-        examples=load_examples(DEV2_JSON_FILENAME,option_num=20)
+        examples=load_examples(DEV2_JSON_FILENAME,option_num=20,use_fixed_label=False)
         logger.info("Finished loading examples.")
         logger.info("Number of examples: {}".format(len(examples)))
 
