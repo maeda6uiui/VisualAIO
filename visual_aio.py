@@ -703,7 +703,7 @@ def main(do_train=True,train_batch_size=2,train_epoch_num=5,model_save_dir="./Ou
 if __name__=="__main__":
     parser=argparse.ArgumentParser(description="VisualAIO")
 
-    parser.add_argument("--do_train",type=bool,default=True)
+    parser.add_argument("--do_train",action="store_true")
     parser.add_argument("--train_batch_size",type=int,default=2)
     parser.add_argument("--train_epoch_num",type=int,default=5)
     parser.add_argument("--model_save_dir",type=str,default="./OutputDir/")
@@ -714,4 +714,3 @@ if __name__=="__main__":
         train_batch_size=args.train_batch_size,
         train_epoch_num=args.train_epoch_num,
         model_save_dir=args.model_save_dir)
-
