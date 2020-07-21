@@ -564,8 +564,8 @@ def main(do_train=True):
     TRAIN_FEATURES_CACHE_DIR="../Data/Cache/Train/"
     DEV2_FEATURES_CACHE_DIR="../Data/Cache/Dev2/"
 
-    TRAIN_BATCH_SIZE=2
-    TRAIN_EPOCH_NUM=8
+    TRAIN_BATCH_SIZE=4
+    TRAIN_EPOCH_NUM=5
     MODEL_SAVE_DIR="./OutputDir/"
 
     TEST_BATCH_SIZE=4
@@ -650,7 +650,8 @@ def main(do_train=True):
                 input_ids,attention_mask,token_type_ids,labels
             )
 
-        train(model,train_dataset,batch_size=2,epoch_num=8,model_save_dir=MODEL_SAVE_DIR)
+        train(model,train_dataset,batch_size=TRAIN_BATCH_SIZE,
+            epoch_num=TRAIN_EPOCH_NUM,model_save_dir=MODEL_SAVE_DIR)
     
     #Test
     test_dataset=None
