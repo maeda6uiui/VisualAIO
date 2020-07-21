@@ -603,9 +603,10 @@ def main(do_train=True):
         model.cuda()
 
     #If there exists a cached file for the model parameters, then load it.
-    if os.path.exists(MODEL_SAVE_DIR):
-        logger.info("Loads parameters from {}.".format(MODEL_SAVE_DIR+"pytorch_model.bin"))
-        model.load_state_dict(torch.load(MODEL_SAVE_DIR+"pytorch_model.bin"))
+    model_filename=MODEL_SAVE_DIR+"pytorch_model.bin"
+    if os.path.exists(model_filename):
+        logger.info("Loads parameters from {}.".format(model_filename))
+        model.load_state_dict(torch.load(model_filename))
 
     if do_train==True:
         #Train
