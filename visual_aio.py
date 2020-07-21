@@ -391,7 +391,7 @@ def train(model,train_dataset,batch_size=2,epoch_num=8,model_save_dir="."):
     for epoch in range(epoch_num):
         logger.info("========== Epoch {} / {} ==========".format(epoch + 1, epoch_num))
 
-        for step, batch in enumerate(tqdm(train_dataloader)):
+        for step, batch in enumerate(train_dataloader):
             batch = tuple(t for t in batch)
 
             inputs=None
@@ -425,7 +425,7 @@ def train(model,train_dataset,batch_size=2,epoch_num=8,model_save_dir="."):
             model.zero_grad()
 
             if step % log_interval == 0:
-                logger.info("Loss: {}".format(loss.item()))
+                logger.info("Current step: {}\tLoss: {}".format(step,loss.item()))
 
         #Save the parameters per epoch.
         checkpoint_filename="checkpoint_{}.bin".format(epoch)
@@ -692,7 +692,8 @@ def main(do_train=True):
             input_ids,attention_mask,token_type_ids,labels
         )
 
-    test(model,test_dataset,batch_size=4)
+    test(model,test_dataset,batch_size=4,
+        result_filename=MODEL_SAVE_DIR+"result.txt",labels_filename=MODEL_SAVE_DIR+"labels.txt")
 
 if __name__=="__main__":
     main(do_train=False)
