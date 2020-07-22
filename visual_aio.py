@@ -429,7 +429,7 @@ def train(model,train_dataset,batch_size=2,epoch_num=8,model_save_dir="."):
                 logger.info("Current step: {}\tLoss: {}".format(step,loss.item()))
 
         #Save the parameters per epoch.
-        checkpoint_filename="checkpoint_{}.bin".format(epoch)
+        checkpoint_filename="checkpoint_{}.bin".format(epoch+1)
         torch.save(model.state_dict(),model_save_dir+checkpoint_filename)
 
     logger.info("Finished training.")
