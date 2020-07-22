@@ -344,7 +344,7 @@ def convert_examples_to_features(
 
     return input_ids,attention_mask,token_type_ids,labels
 
-def train(model,train_dataset,batch_size=2,epoch_num=8,model_filename="./OutputDir/pytorch_model.bin"):
+def train(model,train_dataset,batch_size,epoch_num,model_filename):
     """
     Trains the model.
 
@@ -457,7 +457,7 @@ def simple_accuracy(preds, labels):
     """
     return (preds == labels).mean()
 
-def test(model,test_dataset,batch_size=4,result_filename="",labels_filename=""):
+def test(model,test_dataset,batch_size,result_filename,labels_filename):
     """
     Tests the model.
 
@@ -543,8 +543,7 @@ def test(model,test_dataset,batch_size=4,result_filename="",labels_filename=""):
     logger.info("Finished test.")
     logger.info("Eval loss: {}\nAccuracy: {}".format(eval_loss, accuracy))
 
-def main(do_train=True,train_batch_size=2,train_epoch_num=5,
-    model_filename="./OutputDir/pytorch_model.bin",result_save_dir="./OutputDir/"):
+def main(do_train,train_batch_size,train_epoch_num,model_filename,result_save_dir):
     """
     Main function
 
