@@ -542,7 +542,7 @@ def test(model,test_dataset,batch_size=4,result_filename="",labels_filename=""):
     logger.info("Finished test.")
     logger.info("Eval loss: {}\nAccuracy: {}".format(eval_loss, accuracy))
 
-def main(do_train=True,train_batch_size=2,train_epoch_num=5,model_save_dir="./OutputDir/"):
+def main(do_train=True,train_batch_size=2,train_epoch_num=5,model_save_dir="./OutputDir/",result_save_dir="./OutputDir/"):
     """
     Main function
 
@@ -556,6 +556,8 @@ def main(do_train=True,train_batch_size=2,train_epoch_num=5,model_save_dir="./Ou
         Number of epochs for model training
     model_save_dir: str
         Directory to save the trained model in.
+    result_save_dir: str
+        Directory to save the test result in.
     """
     IMAGE_BASE_DIR="../Data/WikipediaImages/Images/"
     ARTICLE_LIST_FILENAME="../Data/WikipediaImages/article_list.txt"
@@ -698,7 +700,7 @@ def main(do_train=True,train_batch_size=2,train_epoch_num=5,model_save_dir="./Ou
         )
 
     test(model,test_dataset,batch_size=4,
-        result_filename=model_save_dir+"result.txt",labels_filename=model_save_dir+"labels.txt")
+        result_filename=result_save_dir+"result.txt",labels_filename=result_save_dir+"labels.txt")
 
 if __name__=="__main__":
     parser=argparse.ArgumentParser(description="VisualAIO")
@@ -707,10 +709,12 @@ if __name__=="__main__":
     parser.add_argument("--train_batch_size",type=int,default=2)
     parser.add_argument("--train_epoch_num",type=int,default=5)
     parser.add_argument("--model_save_dir",type=str,default="./OutputDir/")
+    parser.add_argument("--result_save_dir",type=str,default="./OutputDir/")
 
     args=parser.parse_args()
 
     main(do_train=args.do_train,
         train_batch_size=args.train_batch_size,
         train_epoch_num=args.train_epoch_num,
-        model_save_dir=args.model_save_dir)
+        model_save_dir=args.model_save_dir,
+        result_save_dir=args.result_save_dir)
