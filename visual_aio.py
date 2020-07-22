@@ -656,7 +656,7 @@ def main(do_train,train_batch_size,train_epoch_num,model_filename,result_save_di
             )
 
         train(model,train_dataset,batch_size=train_batch_size,
-            epoch_num=train_epoch_num,model_save_dir=model_save_dir)
+            epoch_num=train_epoch_num,model_filename=model_filename)
     
     #Test
     test_dataset=None
