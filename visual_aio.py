@@ -344,7 +344,7 @@ def convert_examples_to_features(
 
     return input_ids,attention_mask,token_type_ids,labels
 
-def train(model,train_dataset,batch_size=2,epoch_num=8,model_save_dir="."):
+def train(model,train_dataset,batch_size=2,epoch_num=8,model_filename="./OutputDir/pytorch_model.bin"):
     """
     Trains the model.
 
@@ -358,8 +358,8 @@ def train(model,train_dataset,batch_size=2,epoch_num=8,model_save_dir="."):
         Batch size
     epoch_num: int
         Epoch num
-    model_save_dir: str
-        Directory to save the models in
+    model_filename: str
+        Filename of the saved model
     """
     logger.info("Start training.")
     logger.info("Batch size: {} Epoch num: {}".format(batch_size,epoch_num))
@@ -387,6 +387,7 @@ def train(model,train_dataset,batch_size=2,epoch_num=8,model_save_dir="."):
     log_interval = 100
 
     #Create a directory to save models in.
+    model_save_dir=os.path.dirname(model_filename)+"/"
     os.makedirs(model_save_dir,exist_ok=True)
 
     for epoch in range(epoch_num):
@@ -435,8 +436,8 @@ def train(model,train_dataset,batch_size=2,epoch_num=8,model_save_dir="."):
     logger.info("Finished training.")
     
     #Save the final model parameters.
-    torch.save(model.state_dict(), model_save_dir+"pytorch_model.bin")
-    logger.info("Model saved in {}.".format(model_save_dir+"pytorch_model.bin"))
+    torch.save(model.state_dict(), model_filename)
+    logger.info("Model saved as {}.".format(model_filename))
 
 def simple_accuracy(preds, labels):
     """
@@ -542,7 +543,8 @@ def test(model,test_dataset,batch_size=4,result_filename="",labels_filename=""):
     logger.info("Finished test.")
     logger.info("Eval loss: {}\nAccuracy: {}".format(eval_loss, accuracy))
 
-def main(do_train=True,train_batch_size=2,train_epoch_num=5,model_save_dir="./OutputDir/",result_save_dir="./OutputDir/"):
+def main(do_train=True,train_batch_size=2,train_epoch_num=5,
+    model_filename="./OutputDir/pytorch_model.bin",result_save_dir="./OutputDir/"):
     """
     Main function
 
@@ -554,8 +556,8 @@ def main(do_train=True,train_batch_size=2,train_epoch_num=5,model_save_dir="./Ou
         Batch size for model training
     train_epoch_num: int
         Number of epochs for model training
-    model_save_dir: str
-        Directory to save the trained model in.
+    model_filename: str
+        Filename of the saved model
     result_save_dir: str
         Directory to save the test result in.
     """
@@ -608,7 +610,6 @@ def main(do_train=True,train_batch_size=2,train_epoch_num=5,model_save_dir="./Ou
         model.cuda()
 
     #If there exists a cached file for the model parameters, then load it.
-    model_filename=model_save_dir+"pytorch_model.bin"
     if os.path.exists(model_filename):
         logger.info("Load parameters from {}.".format(model_filename))
         model.load_state_dict(torch.load(model_filename))
@@ -708,7 +709,7 @@ if __name__=="__main__":
     parser.add_argument("--do_train",action="store_true")
     parser.add_argument("--train_batch_size",type=int,default=2)
     parser.add_argument("--train_epoch_num",type=int,default=5)
-    parser.add_argument("--model_save_dir",type=str,default="./OutputDir/")
+    parser.add_argument("--model_filename",type=str,default="./OutputDir/pytorch_model.bin")
     parser.add_argument("--result_save_dir",type=str,default="./OutputDir/")
 
     args=parser.parse_args()
@@ -716,5 +717,5 @@ if __name__=="__main__":
     main(do_train=args.do_train,
         train_batch_size=args.train_batch_size,
         train_epoch_num=args.train_epoch_num,
-        model_save_dir=args.model_save_dir,
+        model_filename=args.model_filename,
         result_save_dir=args.result_save_dir)
