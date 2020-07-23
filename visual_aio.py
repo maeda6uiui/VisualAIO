@@ -1058,8 +1058,9 @@ def main(do_train,train_batch_size,train_epoch_num,model_filename,result_save_di
     label_dict={}
     with open(COCO_LABEL_LIST_FILENAME,mode="r",encoding="utf-8") as r:
         for index,label in enumerate(r):
-            label_dict[index]=label
-            logger.info("{} {}".format(index,label))
+            stripped_label=label.strip()
+            label_dict[index]=stripped_label
+            logger.info("{} {}".format(index,stripped_label))
 
     if do_train==True:
         #Train
