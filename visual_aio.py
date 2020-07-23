@@ -663,7 +663,7 @@ def test_with_two_models(model,model2,test_dataset,test_dataset2,batch_size,resu
 
     preds = None
     out_label_ids = None
-    for step, (batch,batch2) in enumerate(tqdm(zip(test_dataloader,test_dataloader2))):
+    for step, (batch,batch2) in enumerate(tqdm(zip(test_dataloader,test_dataloader2),total=len(test_dataloader))):
         with torch.no_grad():
             batch = tuple(t for t in batch)
             batch2=tuple(t for t in batch2)
