@@ -976,7 +976,7 @@ def main2(model_filename,model2_filename,result_save_dir):
 
         logger.info("Start converting examples to text-only features.")
         input_ids,attention_mask,token_type_ids,labels=convert_examples_to_features_text_only(
-            examples,context_dict,option_num=4,max_seq_length=512)
+            examples,context_dict,option_num=20,max_seq_length=512)
         logger.info("Finished converting examples to text-only features.")
 
         os.makedirs(DEV2_FEATURES_CACHE_DIR)
