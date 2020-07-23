@@ -72,6 +72,8 @@ logger.setLevel(level=logging.INFO)
 IMAGE_BASE_DIR="../Data/WikipediaImages/Images/"
 ARTICLE_LIST_FILENAME="../Data/WikipediaImages/article_list.txt"
 
+COCO_LABEL_LIST_FILENAME="../Data/coco_labels.txt"
+
 CANDIDATE_ENTITIES_FILENAME="../Data/candidate_entities.json.gz"
 TRAIN_JSON_FILENAME="../Data/train_questions.json"
 DEV1_JSON_FILENAME="../Data/dev1_questions.json"
@@ -163,43 +165,81 @@ def load_contexts(gz_filename):
     return contexts_dict
 
 def get_pred_boxes_as_images(image_dir):
-        """
-        Returns predicted boxes as images.
+    """
+    Returns predicted boxes as images.
 
-        Parameters
-        ----------
-        image_dir: str
-            Directory of the images
+    Parameters
+    ----------
+    image_dir: str
+        Directory of the images
 
-        Returns
-        ----------
-        regions: [PIL.Image]
-            Predicted boxes as images
-        """
-        regions=[]
+    Returns
+    ----------
+    regions: [PIL.Image]
+        Predicted boxes as images
+    """
+    regions=[]
 
-        files = os.listdir(image_dir)
-        for file in files:
-            try:
-                image_pil=Image.open(image_dir+file)
-            except:
-                logger.error("Image file open error: {}".format(image_dir+file))
-                continue
+    files = os.listdir(image_dir)
+    for file in files:
+        try:
+            image_pil=Image.open(image_dir+file)
+        except:
+            logger.error("Image file open error: {}".format(image_dir+file))
+            continue
 
-            image_cv2 = cv2.imread(image_dir + file)
-            outputs = predictor(image_cv2)
+        image_cv2 = cv2.imread(image_dir + file)
+        outputs = predictor(image_cv2)
 
-            pred_boxes_tmp = outputs["instances"].pred_boxes.tensor
-            for i in range(pred_boxes_tmp.size()[0]):
-                top_left_x=int(pred_boxes_tmp[i][0])
-                top_left_y=int(pred_boxes_tmp[i][1])
-                bottom_right_x=int(pred_boxes_tmp[i][2])
-                bottom_right_y=int(pred_boxes_tmp[i][3])
+        pred_boxes_tmp = outputs["instances"].pred_boxes.tensor
+        for i in range(pred_boxes_tmp.size()[0]):
+            top_left_x=int(pred_boxes_tmp[i][0])
+            top_left_y=int(pred_boxes_tmp[i][1])
+            bottom_right_x=int(pred_boxes_tmp[i][2])
+            bottom_right_y=int(pred_boxes_tmp[i][3])
 
-                image_region=image_pil.crop((top_left_x,top_left_y,bottom_right_x,bottom_right_y))
-                regions.append(image_region)
+            image_region=image_pil.crop((top_left_x,top_left_y,bottom_right_x,bottom_right_y))
+            regions.append(image_region)
 
-        return regions
+    return regions
+
+def get_pred_classes_as_labels(image_dir,label_dict):
+    """
+    Returns predicted classes as labels.
+
+    Parameters
+    ----------
+    image_dir: str
+        Directory of the images
+    label_dict: {int: str}
+        Dict of labels for the COCO dataset
+
+    Returns
+    ----------
+    labels: [str]
+        Labels
+    """
+    labels=[]
+
+    files = os.listdir(image_dir)
+    for file in files:
+        try:
+            image_pil=Image.open(image_dir+file)
+        except:
+            logger.error("Image file open error: {}".format(image_dir+file))
+            continue
+
+        image_cv2 = cv2.imread(image_dir + file)
+        outputs = predictor(image_cv2)
+
+        pred_classes=outputs["instances"].pred_classes
+        pred_classes=pred_classes.flatten().detach().cpu().numpy()
+
+        for pred_class in pred_classes:
+            pred_label=label_dict[pred_class]
+            labels.append(pred_label)
+
+    return labels
 
 def get_vgg16_output_from_region(region,out_dim=1):
     """
@@ -269,7 +309,7 @@ def convert_examples_to_features(
     option_num: int
         Number of options
     max_seq_length: int
-        Max length of input sequence to BERT
+        Max length of input sequence to BERT model
     image_features_length: int
         Length allocated for image features
 
@@ -351,6 +391,86 @@ def convert_examples_to_features(
                     #Set attention mask.
                     for j in range(input_ids_length,max_seq_length):
                         attention_mask_tmp[j]=0
+
+            input_ids[example_index,i]=input_ids_tmp
+            token_type_ids[example_index,i]=token_type_ids_tmp
+            attention_mask[example_index,i]=attention_mask_tmp
+
+        labels[example_index]=example.label
+
+    return input_ids,attention_mask,token_type_ids,labels
+
+def convert_examples_to_features_pred_labels(examples,context_dict,
+    article_dict,label_dict,option_num,max_seq_length):
+    """
+    Converts examples to features.
+    Uses predicted labels (e.g. 人, 椅子, etc.).
+
+    Parameters
+    ----------
+    examples: [InputExample]
+        Input examples
+    context_dict: {str: str}
+        Dict of contexts
+    article_dict: {str: str}
+        Dict of article names and image directories
+    label_dict: {int: str}
+        Dict of classes and labels for the COCO dataset
+    option_num: int
+        Number of options
+    max_seq_length: int
+        Max length of input sequence to BERT model
+
+    Returns
+    ----------
+    input_ids: torch.tensor
+        Input ids for BERT input
+    attention_mask: torch.tensor
+        Attention mask for BERT input
+    token_type_ids: torch.tensor
+        Token type IDs for BERT input
+    labels: torch.tensor
+        Labels for BERT input
+    """
+    input_ids=torch.empty(len(examples),option_num,max_seq_length,dtype=torch.long)
+    attention_mask=torch.empty(len(examples),option_num,max_seq_length,dtype=torch.long)
+    token_type_ids=torch.empty(len(examples),option_num,max_seq_length,dtype=torch.long)
+    labels=torch.empty(len(examples),dtype=torch.long)
+
+    for example_index,example in enumerate(tqdm(examples)):
+        #Process every option.
+        for i,ending in enumerate(example.endings):
+            #Text features
+            text_a=example.question+"[SEP]"+ending
+
+            text_b=""
+            if ending in article_dict:
+                image_dir=article_dict[ending]
+                image_labels=get_pred_classes_as_labels(image_dir,label_dict)
+
+                for image_label in image_labels:
+                    text_b+=image_label+"[SEP]"
+
+            text_b+=context_dict[ending]
+
+            encoding = tokenizer.encode_plus(
+                text_a,
+                text_b,
+                return_tensors="pt",
+                add_special_tokens=True,
+                pad_to_max_length=True,
+                max_length=max_seq_length,
+                truncation_strategy="only_second"   #Truncate the context
+            )
+
+            input_ids_tmp=encoding["input_ids"]
+            input_ids_tmp=input_ids_tmp.view(-1)
+
+            token_type_ids_tmp=encoding["token_type_ids"]
+            token_type_ids_tmp=token_type_ids_tmp.view(-1)
+
+            #1 for real tokens and 0 for padding
+            attention_mask_tmp=torch.ones(max_seq_length,dtype=torch.long)
 
             input_ids[example_index,i]=input_ids_tmp
             token_type_ids[example_index,i]=token_type_ids_tmp
@@ -730,6 +850,7 @@ def test_with_two_models(model,model2,test_dataset,test_dataset2,batch_size,resu
     logger.info("Finished test.")
     logger.info("Accuracy: {}".format(accuracy))
 
+'''
 def main(do_train,train_batch_size,train_epoch_num,model_filename,result_save_dir):
     """
     Main function
@@ -856,6 +977,163 @@ def main(do_train,train_batch_size,train_epoch_num,model_filename,result_save_di
         input_ids,attention_mask,token_type_ids,labels=convert_examples_to_features(
             examples,context_dict,article_dict,
             option_num=20,max_seq_length=512,image_features_length=50)
+        logger.info("Finished converting examples to features.")
+
+        os.makedirs(DEV2_FEATURES_CACHE_DIR)
+
+        torch.save(input_ids,DEV2_FEATURES_CACHE_DIR+"input_ids.pt")
+        torch.save(attention_mask,DEV2_FEATURES_CACHE_DIR+"attention_mask.pt")
+        torch.save(token_type_ids,DEV2_FEATURES_CACHE_DIR+"token_type_ids.pt")
+        torch.save(labels,DEV2_FEATURES_CACHE_DIR+"labels.pt")
+        logger.info("Saved cache files in {}.".format(DEV2_FEATURES_CACHE_DIR))
+
+        test_dataset=torch.utils.data.TensorDataset(
+            input_ids,attention_mask,token_type_ids,labels
+        )
+
+    test(model,test_dataset,batch_size=4,
+        result_filename=result_save_dir+"result.txt",labels_filename=result_save_dir+"labels.txt")
+'''
+
+#Experimental
+#Uses predicted labels.
+def main(do_train,train_batch_size,train_epoch_num,model_filename,result_save_dir):
+    """
+    Main function
+
+    Parameters
+    ----------
+    do_train: bool
+        Runs model training if true.
+    train_batch_size: int
+        Batch size for model training
+    train_epoch_num: int
+        Number of epochs for model training
+    model_filename: str
+        Filename of the saved model
+    result_save_dir: str
+        Directory to save the test result in.
+    """
+    #Load the list of articles.
+    logger.info("Start loading the article list.")
+    df = pd.read_table(ARTICLE_LIST_FILENAME, header=None)
+    logger.info("Finished loading the article list.")
+
+    #Make a dict of articles.
+    logger.info("Start creating a dict of articles.")
+
+    article_dict={}
+    for row in df.itertuples(name=None):
+        article_name = row[1]
+        dir_1 = row[2]
+        dir_2 = row[3]
+
+        image_dir = IMAGE_BASE_DIR+str(dir_1) + "/" + str(dir_2) + "/"
+        article_dict[article_name]=image_dir
+
+    logger.info("Finished creating a dict of articles.")
+    
+    #Load contexts.
+    logger.info("Start loading contexts.")
+    context_dict=load_contexts(CANDIDATE_ENTITIES_FILENAME)
+    logger.info("Finished loading contexts.")
+    logger.info("Number of contexts: {}".format(len(context_dict)))
+
+    #Create a model.
+    model = BertForMultipleChoice.from_pretrained(
+        "cl-tohoku/bert-base-japanese-whole-word-masking"
+    )
+    if torch.cuda.is_available():
+        model.cuda()
+
+    #If there exists a cached file for the model parameters, then load it.
+    if os.path.exists(model_filename):
+        logger.info("Load parameters from {}.".format(model_filename))
+        model.load_state_dict(torch.load(model_filename))
+
+    #Load COCO labels.
+    logger.info("Load labels for the COCO dataset.")
+    logger.info("Filename: {}".format(COCO_LABEL_LIST_FILENAME))
+
+    label_dict={}
+    with open(COCO_LABEL_LIST_FILENAME,mode="r",encoding="utf-8") as r:
+        for index,label in enumerate(r):
+            label_dict[index]=label
+            logger.info("{} {}".format(index,label))
+
+    if do_train==True:
+        #Train
+        train_dataset=None
+
+        #Load cached features it cache files exist.
+        if os.path.exists(TRAIN_FEATURES_CACHE_DIR+"input_ids.pt"):
+            logger.info("Load features from cached files.")
+
+            input_ids=torch.load(TRAIN_FEATURES_CACHE_DIR+"input_ids.pt")
+            attention_mask=torch.load(TRAIN_FEATURES_CACHE_DIR+"attention_mask.pt")
+            token_type_ids=torch.load(TRAIN_FEATURES_CACHE_DIR+"token_type_ids.pt")
+            labels=torch.load(TRAIN_FEATURES_CACHE_DIR+"labels.pt")
+
+            train_dataset=torch.utils.data.TensorDataset(
+                input_ids,attention_mask,token_type_ids,labels
+            )
+
+        else:
+            logger.info("Start loading examples.")
+            logger.info("JSON filename: {}".format(TRAIN_JSON_FILENAME))
+            examples=load_examples(TRAIN_JSON_FILENAME,option_num=TRAIN_OPTION_NUM,use_fixed_label=True)
+            logger.info("Finished loading examples.")
+            logger.info("Number of examples: {}".format(len(examples)))
+
+            logger.info("Start converting examples to features.")
+            input_ids,attention_mask,token_type_ids,labels=convert_examples_to_features(
+                examples,context_dict,article_dict,
+                option_num=TRAIN_OPTION_NUM,max_seq_length=512,image_features_length=50)
+            input_ids,attention_mask,token_type_ids,labels=convert_examples_to_features_pred_labels(
+                examples,context_dict,article_dict,label_dict,option_num=4,max_seq_length=512)
+            logger.info("Finished converting examples to features.")
+
+            os.makedirs(TRAIN_FEATURES_CACHE_DIR)
+
+            torch.save(input_ids,TRAIN_FEATURES_CACHE_DIR+"input_ids.pt")
+            torch.save(attention_mask,TRAIN_FEATURES_CACHE_DIR+"attention_mask.pt")
+            torch.save(token_type_ids,TRAIN_FEATURES_CACHE_DIR+"token_type_ids.pt")
+            torch.save(labels,TRAIN_FEATURES_CACHE_DIR+"labels.pt")
+            logger.info("Saved cache files in {}.".format(TRAIN_FEATURES_CACHE_DIR))
+
+            train_dataset=torch.utils.data.TensorDataset(
+                input_ids,attention_mask,token_type_ids,labels
+            )
+
+        train(model,train_dataset,batch_size=train_batch_size,
+            epoch_num=train_epoch_num,model_filename=model_filename)
+    
+    #Test
+    test_dataset=None
+
+    #Load cached features if cache files exist.
+    if os.path.exists(DEV2_FEATURES_CACHE_DIR+"input_ids.pt"):
+        logger.info("Load features from cached files.")
+
+        input_ids=torch.load(DEV2_FEATURES_CACHE_DIR+"input_ids.pt")
+        attention_mask=torch.load(DEV2_FEATURES_CACHE_DIR+"attention_mask.pt")
+        token_type_ids=torch.load(DEV2_FEATURES_CACHE_DIR+"token_type_ids.pt")
+        labels=torch.load(DEV2_FEATURES_CACHE_DIR+"labels.pt")
+
+        test_dataset=torch.utils.data.TensorDataset(
+            input_ids,attention_mask,token_type_ids,labels
+        )
+
+    else:
+        logger.info("Start loading examples.")
+        logger.info("JSON filename: {}".format(DEV2_JSON_FILENAME))
+        examples=load_examples(DEV2_JSON_FILENAME,option_num=20,use_fixed_label=False)
+        logger.info("Finished loading examples.")
+        logger.info("Number of examples: {}".format(len(examples)))
+
+        logger.info("Start converting examples to features.")
+        input_ids,attention_mask,token_type_ids,labels=convert_examples_to_features_pred_labels(
+                examples,context_dict,article_dict,label_dict,option_num=20,max_seq_length=512)
         logger.info("Finished converting examples to features.")
 
         os.makedirs(DEV2_FEATURES_CACHE_DIR)
