@@ -979,7 +979,7 @@ def main2(model_filename,model2_filename,result_save_dir):
             examples,context_dict,option_num=20,max_seq_length=512)
         logger.info("Finished converting examples to text-only features.")
 
-        os.makedirs(DEV2_FEATURES_CACHE_DIR)
+        #os.makedirs(DEV2_FEATURES_CACHE_DIR)
 
         torch.save(input_ids,DEV2_FEATURES_CACHE_DIR+"input_ids_text_only.pt")
         torch.save(attention_mask,DEV2_FEATURES_CACHE_DIR+"attention_mask_text_only.pt")
