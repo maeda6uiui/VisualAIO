@@ -998,6 +998,7 @@ if __name__=="__main__":
     parser=argparse.ArgumentParser(description="VisualAIO")
 
     parser.add_argument("--do_train",action="store_true")
+    parser.add_argument("--do_test_with_two_models",action="store_true")
     parser.add_argument("--train_batch_size",type=int,default=2)
     parser.add_argument("--train_epoch_num",type=int,default=5)
     parser.add_argument("--model_filename",type=str,default="./OutputDir/pytorch_model.bin")
@@ -1006,13 +1007,13 @@ if __name__=="__main__":
 
     args=parser.parse_args()
 
-    """
-    main(do_train=args.do_train,
-        train_batch_size=args.train_batch_size,
-        train_epoch_num=args.train_epoch_num,
-        model_filename=args.model_filename,
-        result_save_dir=args.result_save_dir)
-    """
-    main2(model_filename=args.model_filename,
-        model2_filename=args.model2_filename,
-        result_save_dir=args.result_save_dir)
+    if args.do_test_with_two_models==False:
+        main(do_train=args.do_train,
+            train_batch_size=args.train_batch_size,
+            train_epoch_num=args.train_epoch_num,
+            model_filename=args.model_filename,
+            result_save_dir=args.result_save_dir)
+    else:
+        main2(model_filename=args.model_filename,
+            model2_filename=args.model2_filename,
+            result_save_dir=args.result_save_dir)
