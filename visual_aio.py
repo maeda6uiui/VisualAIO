@@ -238,7 +238,7 @@ def get_vgg16_output_from_regions(regions,output_dim=1):
 
 def convert_examples_to_features(
     examples,context_dict,article_dict,
-    option_num=4,max_seq_length=512,image_features_length=50):
+    option_num,max_seq_length,image_features_length):
     """
     Converts examples to features.
 
@@ -260,13 +260,13 @@ def convert_examples_to_features(
     Returns
     ----------
     input_ids: torch.tensor
-        Input ids for BERT
+        Input ids for BERT input
     attention_mask: torch.tensor
-        Attention mask for BERT
+        Attention mask for BERT input
     token_type_ids: torch.tensor
-        Token type IDs for BERT
+        Token type IDs for BERT input
     labels: torch.tensor
-        Labels for BERT
+        Labels for BERT input
     """
     input_ids=torch.empty(len(examples),option_num,max_seq_length,dtype=torch.long)
     attention_mask=torch.empty(len(examples),option_num,max_seq_length,dtype=torch.long)
@@ -335,6 +335,74 @@ def convert_examples_to_features(
                     #Set attention mask.
                     for j in range(input_ids_length,max_seq_length):
                         attention_mask_tmp[j]=0
+
+            input_ids[example_index,i]=input_ids_tmp
+            token_type_ids[example_index,i]=token_type_ids_tmp
+            attention_mask[example_index,i]=attention_mask_tmp
+
+        labels[example_index]=example.label
+
+    return input_ids,attention_mask,token_type_ids,labels
+
+def convert_examples_to_features_text_only(examples,context_dict,option_num,max_seq_length):
+    """
+    Converts examples to features.
+    Image features are not included.
+
+    Parameters
+    ----------
+    examples: [InputExample]
+        Input examples
+    context_dict: {str: str}
+        Dict of contexts
+    article_dict: {str: str}
+        Dict of article names and image directories
+    option_num: int
+        Number of options
+    max_seq_length: int
+        Max length of input sequence to BERT
+
+    Returns
+    ----------
+    input_ids: torch.tensor
+        Input ids for BERT input
+    attention_mask: torch.tensor
+        Attention mask for BERT input
+    token_type_ids: torch.tensor
+        Token type IDs for BERT input
+    labels: torch.tensor
+        Labels for BERT input
+    """
+    input_ids=torch.empty(len(examples),option_num,max_seq_length,dtype=torch.long)
+    attention_mask=torch.empty(len(examples),option_num,max_seq_length,dtype=torch.long)
+    token_type_ids=torch.empty(len(examples),option_num,max_seq_length,dtype=torch.long)
+    labels=torch.empty(len(examples),dtype=torch.long)
+
+    for example_index,example in enumerate(tqdm(examples)):
+        #Process every option.
+        for i,ending in enumerate(example.endings):
+            #Text features
+            text_a=example.question+"[SEP]"+ending
+            text_b=context_dict[ending]
+
+            encoding = tokenizer.encode_plus(
+                text_a,
+                text_b,
+                return_tensors="pt",
+                add_special_tokens=True,
+                pad_to_max_length=True,
+                max_length=max_seq_length,
+                truncation_strategy="only_second"   #Truncate the context
+            )
+
+            input_ids_tmp=encoding["input_ids"]
+            input_ids_tmp=input_ids_tmp.view(-1)
+
+            token_type_ids_tmp=encoding["token_type_ids"]
+            token_type_ids_tmp=token_type_ids_tmp.view(-1)
+
+            #1 for real tokens and 0 for padding
+            attention_mask_tmp=torch.ones(max_seq_length,dtype=torch.long)
 
             input_ids[example_index,i]=input_ids_tmp
             token_type_ids[example_index,i]=token_type_ids_tmp
