@@ -69,6 +69,22 @@ logging.basicConfig(format=logging_fmt)
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
 
+IMAGE_BASE_DIR="../Data/WikipediaImages/Images/"
+ARTICLE_LIST_FILENAME="../Data/WikipediaImages/article_list.txt"
+
+CANDIDATE_ENTITIES_FILENAME="../Data/candidate_entities.json.gz"
+TRAIN_JSON_FILENAME="../Data/train_questions.json"
+DEV1_JSON_FILENAME="../Data/dev1_questions.json"
+DEV2_JSON_FILENAME="../Data/dev2_questions.json"
+LEADERBOARD_JSON_FILENAME="../Data/aio_leaderboard.json"
+
+TRAIN_OPTION_NUM=4
+
+TRAIN_FEATURES_CACHE_DIR="../Data/Cache/Train/"
+DEV2_FEATURES_CACHE_DIR="../Data/Cache/Dev2/"
+
+TEST_BATCH_SIZE=4
+
 class InputExample(object):
     """
     Input example
@@ -611,6 +627,109 @@ def test(model,test_dataset,batch_size,result_filename,labels_filename):
     logger.info("Finished test.")
     logger.info("Eval loss: {}\nAccuracy: {}".format(eval_loss, accuracy))
 
+def test_with_two_models(model,model2,test_dataset,test_dataset2,batch_size,result_filename,labels_filename):
+    """
+    Conducts test with two models.
+
+    Parameters
+    ----------
+    model: transformers.BertForMultipleChoice
+        Fine-tuned model
+    model2: transformers.BertForMultipleChoice
+        Fine-tuned model
+    test_dataset: torch.utils.data.TensorDataset
+        Test dataset
+    test_dataset2: torch.utils.data.TensorDataset
+        Test dataset 2
+    batch_size: int
+        Batch size
+    result_filename: str
+        Filename of the text file to save the test result in.
+    labels_filename: str
+        Filename of the text file to save the predicted labels and the correct labels.
+    """
+    logger.info("Start test with two models.")
+
+    #Create dataloaders.
+    test_dataloader = torch.utils.data.DataLoader(
+        test_dataset, batch_size=batch_size, shuffle=False
+    )
+    test_dataloader2 = torch.utils.data.DataLoader(
+        test_dataset2, batch_size=batch_size, shuffle=False
+    )
+
+    #Set the model to evaluation mode.
+    model.eval()
+
+    preds = None
+    out_label_ids = None
+    for step, (batch,batch2) in enumerate(tqdm(zip(test_dataloader,test_dataloader2))):
+        with torch.no_grad():
+            batch = tuple(t for t in batch)
+            batch2=tuple(t for t in batch2)
+
+            inputs=None
+            inputs2=None
+            if torch.cuda.is_available():
+                inputs = {
+                    "input_ids": batch[0].cuda(),
+                    "attention_mask": batch[1].cuda(),
+                    "token_type_ids": batch[2].cuda(),
+                    "labels": batch[3].cuda(),
+                }
+                inputs2 = {
+                    "input_ids": batch2[0].cuda(),
+                    "attention_mask": batch2[1].cuda(),
+                    "token_type_ids": batch2[2].cuda(),
+                    "labels": batch2[3].cuda(),
+                }
+            else:
+                inputs = {
+                    "input_ids": batch[0],
+                    "attention_mask": batch[1],
+                    "token_type_ids": batch[2],
+                    "labels": batch[3],
+                }
+                inputs2 = {
+                    "input_ids": batch2[0],
+                    "attention_mask": batch2[1],
+                    "token_type_ids": batch2[2],
+                    "labels": batch2[3],
+                }
+
+            outputs = model(**inputs)
+            outputs2=model2(**inputs2)
+
+            #Experimental
+            #Add two logits.
+            logits=outputs[1]+outputs2[1]
+
+        if preds is None:
+            preds = logits.detach().cpu().numpy()
+            out_label_ids = inputs["labels"].detach().cpu().numpy()
+        else:
+            preds = np.append(preds, logits.detach().cpu().numpy(), axis=0)
+            out_label_ids = np.append(
+                out_label_ids, inputs["labels"].detach().cpu().numpy(), axis=0
+            )
+
+    pred_ids = np.argmax(preds, axis=1)
+    accuracy = simple_accuracy(pred_ids, out_label_ids)
+
+    #Save the test result.
+    if result_filename!="":
+        with open(result_filename,mode="w") as w:
+            w.write("Accuracy: {}\n".format(accuracy))
+
+    #Save the predicted labels and correct labels.
+    if labels_filename!="":
+        with open(labels_filename,mode="w") as w:
+            for pred,correct in zip(pred_ids,out_label_ids):
+                w.write("{} {}\n".format(pred,correct))
+
+    logger.info("Finished test.")
+    logger.info("Accuracy: {}".format(accuracy))
+
 def main(do_train,train_batch_size,train_epoch_num,model_filename,result_save_dir):
     """
     Main function
@@ -628,22 +747,6 @@ def main(do_train,train_batch_size,train_epoch_num,model_filename,result_save_di
     result_save_dir: str
         Directory to save the test result in.
     """
-    IMAGE_BASE_DIR="../Data/WikipediaImages/Images/"
-    ARTICLE_LIST_FILENAME="../Data/WikipediaImages/article_list.txt"
-
-    CANDIDATE_ENTITIES_FILENAME="../Data/candidate_entities.json.gz"
-    TRAIN_JSON_FILENAME="../Data/train_questions.json"
-    DEV1_JSON_FILENAME="../Data/dev1_questions.json"
-    DEV2_JSON_FILENAME="../Data/dev2_questions.json"
-    LEADERBOARD_JSON_FILENAME="../Data/aio_leaderboard.json"
-
-    TRAIN_OPTION_NUM=4
-
-    TRAIN_FEATURES_CACHE_DIR="../Data/Cache/Train/"
-    DEV2_FEATURES_CACHE_DIR="../Data/Cache/Dev2/"
-
-    TEST_BATCH_SIZE=4
-
     #Load the list of articles.
     logger.info("Start loading the article list.")
     df = pd.read_table(ARTICLE_LIST_FILENAME, header=None)
@@ -685,8 +788,8 @@ def main(do_train,train_batch_size,train_epoch_num,model_filename,result_save_di
         #Train
         train_dataset=None
 
-        #Load cached features it cache directory exists.
-        if os.path.exists(TRAIN_FEATURES_CACHE_DIR):
+        #Load cached features it cache files exist.
+        if os.path.exists(TRAIN_FEATURES_CACHE_DIR+"input_ids.pt"):
             logger.info("Load features from cached files.")
 
             input_ids=torch.load(TRAIN_FEATURES_CACHE_DIR+"input_ids.pt")
@@ -729,8 +832,8 @@ def main(do_train,train_batch_size,train_epoch_num,model_filename,result_save_di
     #Test
     test_dataset=None
 
-    #Load cached features it cache directory exists.
-    if os.path.exists(DEV2_FEATURES_CACHE_DIR):
+    #Load cached features if cache files exist.
+    if os.path.exists(DEV2_FEATURES_CACHE_DIR+"input_ids.pt"):
         logger.info("Load features from cached files.")
 
         input_ids=torch.load(DEV2_FEATURES_CACHE_DIR+"input_ids.pt")
@@ -770,6 +873,127 @@ def main(do_train,train_batch_size,train_epoch_num,model_filename,result_save_di
     test(model,test_dataset,batch_size=4,
         result_filename=result_save_dir+"result.txt",labels_filename=result_save_dir+"labels.txt")
 
+def main2(model_filename,model2_filename,result_save_dir):
+    """
+    Main function
+    Conducts test with two models.
+    Assumes that the first model is trained with image features 
+    and the second model is trained with text features only.
+
+    Parameters
+    ----------
+    model_filename: str
+        Filename of the first saved model
+    model2_filename: str
+        Filename of the second saved model
+    result_save_dir: str
+        Directory to save the test result in.
+    """
+    #Load contexts.
+    logger.info("Start loading contexts.")
+    context_dict=load_contexts(CANDIDATE_ENTITIES_FILENAME)
+    logger.info("Finished loading contexts.")
+    logger.info("Number of contexts: {}".format(len(context_dict)))
+
+    #Create models.
+    model = BertForMultipleChoice.from_pretrained(
+        "cl-tohoku/bert-base-japanese-whole-word-masking"
+    )
+    model2 = BertForMultipleChoice.from_pretrained(
+        "cl-tohoku/bert-base-japanese-whole-word-masking"
+    )
+    if torch.cuda.is_available():
+        model.cuda()
+        model2.cuda()
+
+    #If there exist cached files for the model parameters, then load them.
+    if os.path.exists(model_filename):
+        logger.info("Load parameters from {}.".format(model_filename))
+        model.load_state_dict(torch.load(model_filename))
+    if os.path.exists(model2_filename):
+        logger.info("Load parameters from {}.".format(model2_filename))
+        model.load_state_dict(torch.load(model2_filename))
+    
+    #Test
+    test_dataset=None
+    test_dataset2=None
+
+    #Load cached features if cache files exist.
+    if os.path.exists(DEV2_FEATURES_CACHE_DIR+"input_ids.pt"):
+        logger.info("Load features from cached files.")
+
+        input_ids=torch.load(DEV2_FEATURES_CACHE_DIR+"input_ids.pt")
+        attention_mask=torch.load(DEV2_FEATURES_CACHE_DIR+"attention_mask.pt")
+        token_type_ids=torch.load(DEV2_FEATURES_CACHE_DIR+"token_type_ids.pt")
+        labels=torch.load(DEV2_FEATURES_CACHE_DIR+"labels.pt")
+
+        test_dataset=torch.utils.data.TensorDataset(
+            input_ids,attention_mask,token_type_ids,labels
+        )
+    else:
+        logger.info("Start loading examples.")
+        logger.info("JSON filename: {}".format(DEV2_JSON_FILENAME))
+        examples=load_examples(DEV2_JSON_FILENAME,option_num=20,use_fixed_label=False)
+        logger.info("Finished loading examples.")
+        logger.info("Number of examples: {}".format(len(examples)))
+
+        logger.info("Start converting examples to features.")
+        input_ids,attention_mask,token_type_ids,labels=convert_examples_to_features(
+            examples,context_dict,article_dict,
+            option_num=20,max_seq_length=512,image_features_length=50)
+        logger.info("Finished converting examples to features.")
+
+        os.makedirs(DEV2_FEATURES_CACHE_DIR)
+
+        torch.save(input_ids,DEV2_FEATURES_CACHE_DIR+"input_ids.pt")
+        torch.save(attention_mask,DEV2_FEATURES_CACHE_DIR+"attention_mask.pt")
+        torch.save(token_type_ids,DEV2_FEATURES_CACHE_DIR+"token_type_ids.pt")
+        torch.save(labels,DEV2_FEATURES_CACHE_DIR+"labels.pt")
+        logger.info("Saved cache files in {}.".format(DEV2_FEATURES_CACHE_DIR))
+
+        test_dataset=torch.utils.data.TensorDataset(
+            input_ids,attention_mask,token_type_ids,labels
+        )
+
+    #Load cached features if cache files exist.
+    if os.path.exists(DEV2_FEATURES_CACHE_DIR+"input_ids_text_only.pt"):
+        logger.info("Load text-only features from cached files.")
+
+        input_ids=torch.load(DEV2_FEATURES_CACHE_DIR+"input_ids_text_only.pt")
+        attention_mask=torch.load(DEV2_FEATURES_CACHE_DIR+"attention_mask_text_only.pt")
+        token_type_ids=torch.load(DEV2_FEATURES_CACHE_DIR+"token_type_ids_text_only.pt")
+        labels=torch.load(DEV2_FEATURES_CACHE_DIR+"labels_text_only.pt")
+
+        test_dataset2=torch.utils.data.TensorDataset(
+            input_ids,attention_mask,token_type_ids,labels
+        )
+    else:
+        logger.info("Start loading examples.")
+        logger.info("JSON filename: {}".format(DEV2_JSON_FILENAME))
+        examples=load_examples(DEV2_JSON_FILENAME,option_num=20,use_fixed_label=False)
+        logger.info("Finished loading examples.")
+        logger.info("Number of examples: {}".format(len(examples)))
+
+        logger.info("Start converting examples to text-only features.")
+        input_ids,attention_mask,token_type_ids,labels=convert_examples_to_features_text_only(
+            examples,context_dict,option_num=4,max_seq_length=512)
+        logger.info("Finished converting examples to text-only features.")
+
+        os.makedirs(DEV2_FEATURES_CACHE_DIR)
+
+        torch.save(input_ids,DEV2_FEATURES_CACHE_DIR+"input_ids_text_only.pt")
+        torch.save(attention_mask,DEV2_FEATURES_CACHE_DIR+"attention_mask_text_only.pt")
+        torch.save(token_type_ids,DEV2_FEATURES_CACHE_DIR+"token_type_ids_text_only.pt")
+        torch.save(labels,DEV2_FEATURES_CACHE_DIR+"labels_text_only.pt")
+        logger.info("Saved cache files in {}.".format(DEV2_FEATURES_CACHE_DIR))
+
+        test_dataset2=torch.utils.data.TensorDataset(
+            input_ids,attention_mask,token_type_ids,labels
+        )
+
+    test_with_two_models(model,model2,test_dataset,test_dataset2,batch_size=4,
+        result_filename=result_save_dir+"result.txt",labels_filename=result_save_dir+"labels.txt")
+
 if __name__=="__main__":
     parser=argparse.ArgumentParser(description="VisualAIO")
 
@@ -777,12 +1001,18 @@ if __name__=="__main__":
     parser.add_argument("--train_batch_size",type=int,default=2)
     parser.add_argument("--train_epoch_num",type=int,default=5)
     parser.add_argument("--model_filename",type=str,default="./OutputDir/pytorch_model.bin")
+    parser.add_argument("--model2_filename",type=str,default="./OutputDir/pytorch_model_text_only.bin")
     parser.add_argument("--result_save_dir",type=str,default="./OutputDir/")
 
     args=parser.parse_args()
 
+    """
     main(do_train=args.do_train,
         train_batch_size=args.train_batch_size,
         train_epoch_num=args.train_epoch_num,
         model_filename=args.model_filename,
+        result_save_dir=args.result_save_dir)
+    """
+    main2(model_filename=args.model_filename,
+        model2_filename=args.model2_filename,
         result_save_dir=args.result_save_dir)
