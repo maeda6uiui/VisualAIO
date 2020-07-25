@@ -952,7 +952,7 @@ def main(do_train,train_batch_size,train_epoch_num,model_filename,result_save_di
     test_dataset=None
 
     #Load cached features if cache files exist.
-    if os.path.exists(DEV2_FEATURES_CACHE_DIR+"input_ids.pt"):
+    if os.path.exists(DEV2_FEATURES_CACHE_DIR+"input_ids_text_only.pt"):
         logger.info("Load features from cached files.")
 
         input_ids=torch.load(DEV2_FEATURES_CACHE_DIR+"input_ids_text_only.pt")
