@@ -935,7 +935,7 @@ def main(do_train,train_batch_size,train_epoch_num,model_filename,result_save_di
                 option_num=TRAIN_OPTION_NUM,max_seq_length=512,image_features_length=50)
             logger.info("Finished converting examples to features.")
 
-            os.makedirs(TRAIN_FEATURES_CACHE_DIR)
+            os.makedirs(TRAIN_FEATURES_CACHE_DIR,exist_ok=True)
 
             torch.save(input_ids,TRAIN_FEATURES_CACHE_DIR+"input_ids.pt")
             torch.save(attention_mask,TRAIN_FEATURES_CACHE_DIR+"attention_mask.pt")
@@ -979,7 +979,7 @@ def main(do_train,train_batch_size,train_epoch_num,model_filename,result_save_di
             option_num=20,max_seq_length=512,image_features_length=50)
         logger.info("Finished converting examples to features.")
 
-        os.makedirs(DEV2_FEATURES_CACHE_DIR)
+        os.makedirs(DEV2_FEATURES_CACHE_DIR,exist_ok=True)
 
         torch.save(input_ids,DEV2_FEATURES_CACHE_DIR+"input_ids.pt")
         torch.save(attention_mask,DEV2_FEATURES_CACHE_DIR+"attention_mask.pt")
@@ -1094,7 +1094,7 @@ def main(do_train,train_batch_size,train_epoch_num,model_filename,result_save_di
                 examples,context_dict,article_dict,label_dict,option_num=4,max_seq_length=512)
             logger.info("Finished converting examples to features.")
 
-            os.makedirs(TRAIN_FEATURES_CACHE_DIR)
+            os.makedirs(TRAIN_FEATURES_CACHE_DIR,exist_ok=True)
 
             torch.save(input_ids,TRAIN_FEATURES_CACHE_DIR+"input_ids.pt")
             torch.save(attention_mask,TRAIN_FEATURES_CACHE_DIR+"attention_mask.pt")
@@ -1137,7 +1137,7 @@ def main(do_train,train_batch_size,train_epoch_num,model_filename,result_save_di
                 examples,context_dict,article_dict,label_dict,option_num=20,max_seq_length=512)
         logger.info("Finished converting examples to features.")
 
-        os.makedirs(DEV2_FEATURES_CACHE_DIR)
+        os.makedirs(DEV2_FEATURES_CACHE_DIR,exist_ok=True)
 
         torch.save(input_ids,DEV2_FEATURES_CACHE_DIR+"input_ids.pt")
         torch.save(attention_mask,DEV2_FEATURES_CACHE_DIR+"attention_mask.pt")
@@ -1222,7 +1222,7 @@ def main2(model_filename,model2_filename,result_save_dir):
             option_num=20,max_seq_length=512,image_features_length=50)
         logger.info("Finished converting examples to features.")
 
-        os.makedirs(DEV2_FEATURES_CACHE_DIR)
+        os.makedirs(DEV2_FEATURES_CACHE_DIR,exist_ok=True)
 
         torch.save(input_ids,DEV2_FEATURES_CACHE_DIR+"input_ids.pt")
         torch.save(attention_mask,DEV2_FEATURES_CACHE_DIR+"attention_mask.pt")
@@ -1258,7 +1258,7 @@ def main2(model_filename,model2_filename,result_save_dir):
             examples,context_dict,option_num=20,max_seq_length=512)
         logger.info("Finished converting examples to text-only features.")
 
-        #os.makedirs(DEV2_FEATURES_CACHE_DIR)
+        #os.makedirs(DEV2_FEATURES_CACHE_DIR,exist_ok=True)
 
         torch.save(input_ids,DEV2_FEATURES_CACHE_DIR+"input_ids_text_only.pt")
         torch.save(attention_mask,DEV2_FEATURES_CACHE_DIR+"attention_mask_text_only.pt")
